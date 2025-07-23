@@ -1,0 +1,49 @@
+name: Codex Generate & Commit
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install OpenAI SDK
+        run: pip install openai
+
+      - name: Run Codex script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI }}
+        run: |
+          python - << 'PYCODE'
+          import os, openai
+          openai.api_key = os.getenv("OPENAI_API_KEY")
+          
+          prompt = """# Napiši Python funkciju koja reverzira string
+          # i uključi pytest primer."""
+          resp = openai.Completion.create(
+            engine="code-davinci-002",
+            prompt=prompt,
+            max_tokens=200,
+            temperature=0
+          )
+          code = resp.choices[0].text
+          os.makedirs("generated", exist_ok=True)
+          with open("generated/reverse_string.py", "w") as f:
+              f.write(code)
+          PYCODE
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add generated/reverse_string.py
+          git diff --quiet || git commit -m "chore: add reverse_string via Codex"
+          git push
